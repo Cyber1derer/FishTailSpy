@@ -1,2 +1,7 @@
-camera_params.npz
 Data/
+Data/CalibVideo
+Data/CalibData
+Data/SampleChess
+Data/UndistertImages
+deleteThis.py
+Data/Fish/Source
