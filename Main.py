@@ -13,8 +13,8 @@ def on_trackbar(val):
 useEqualize = True
 blurSize = 3
 win_name = "FinderFish"
-CannyThresh1 = 100
-CannyThresh2 = 200
+CannyThresh1 = 120
+CannyThresh2 = 240
 frameCount = 1
 ret = True
 
@@ -26,7 +26,7 @@ cv2.createTrackbar("BlurGaus", "Canny viewUp Video" , blurSize, 50, on_trackbar)
 
 # Open video file
 cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/Fish1_3m.mp4')
-cap.set(cv2.CAP_PROP_POS_MSEC , 34000)
+cap.set(cv2.CAP_PROP_POS_MSEC , 36000)
 
 # Load camera parameters
 data = np.load("camera_params.npz")
@@ -42,8 +42,8 @@ while ret:
     # Undistort frame
     undistortFrame = cv2.undistort(frame, mtx, dist)
     # Extract region of interest
-    viewUp = undistortFrame[306:1250, 1150:1440].copy() # y1:y2 x1:x2
-    viewUpSource = undistortFrame [306:1250, 1150:1440].copy() # y1:y2 x1:x2
+    viewUp = undistortFrame[450:1250, 1150:1440].copy() # y1:y2 x1:x2
+    viewUpSource = undistortFrame [450:1250, 1150:1440].copy() # y1:y2 x1:x2
 
     # Apply Gaussian blur if blur size is valid
     if blurSize >= 3:
@@ -57,7 +57,7 @@ while ret:
         viewUp = cv2.equalizeHist(viewUp)
     
 
-    upEdges = cv2.Canny(viewUp, CannyThresh1,CannyThresh2)
+    upEdges = cv2.Canny(viewUp, CannyThresh1,CannyThresh2,None,3,False)
     upPxEdges = np.argwhere(upEdges == 255)
 
     if upPxEdges.size == 0:
@@ -79,7 +79,7 @@ while ret:
 
     # Reset video position after a certain frame count
     if frameCount > 400:
-        cap.set(cv2.CAP_PROP_POS_MSEC , 34000)
+        cap.set(cv2.CAP_PROP_POS_MSEC , 36000)
         frameCount = 1
     #Exit loop if 'q' is pressed
     if cv2.waitKey(1) == ord('q'):
