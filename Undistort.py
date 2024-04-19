@@ -2,40 +2,85 @@ import cv2
 import numpy as np
 import os
 
+def on_trackbar(val):
+    global  CannyThesh1,CannyThesh2
+    CannyThesh1 = cv2.getTrackbarPos('CannyTresh1', "Canny viewUp Video")
+    CannyThesh2 = cv2.getTrackbarPos('CannyTresh2', "Canny viewUp Video")
 
-cap = cv2.VideoCapture('Data/Fish/Fish1.MP4')
+
+#global useEqualize, blurSize, CannyThesh1,CannyThesh2
+useEqualize = False
+blurSize = 7
+win_name = "FinderFish"
+CannyThesh1 = 100
+CannyThesh2 = 200
+
+
+cv2.namedWindow("Canny viewUp Video")
+cv2.createTrackbar("CannyTresh1", "Canny viewUp Video" , 0, 500, on_trackbar)
+cv2.createTrackbar("CannyTresh2", "Canny viewUp Video" , 0, 500, on_trackbar)
+
+
+cap = cv2.VideoCapture('D:\MyCodeProjects\FishTailSpy\Data\Fish\Fish1_3m.mp4')
 
 data = np.load("camera_params.npz")
 
 mtx = data['mtx']
 dist = data['dist']
-frameN = 1
+frameCount = 1
 ret = True
-#h,  w = cap.get(cv2.CAP_PROP_FRAME_HEIGHT), cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-#newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
-#mapx, mapy = cv2.initUndistortRectifyMap(mtx, dist, None, newcameramtx, (w,h), 5)
+cap.set(cv2.CAP_PROP_POS_MSEC , 34000)
+
+
+
 
 while ret:
     ret, frame = cap.read()
-    #corrected = cv2.remap(frame, mapx, mapy, cv2.INTER_LINEAR)
-    corrected = cv2.undistort(frame, mtx, dist)
-    cv2.imshow('Corrected Video', corrected)
-    cv2.imwrite( "Data//UndistertImages//Undist_frame_" + str(frameN) + ".png", corrected )
-    cv2.imwrite( "Data//UndistertImages//Source_frame_" + str(frameN) + ".png", frame )
+    undistortFrame = cv2.undistort(frame, mtx, dist)
 
-    frameN +=1
-    cv2.waitKey(500)
+    viewUp = undistortFrame[306:1250, 1150:1440].copy() # y1:y2 x1:x2
+    viewUpSource = undistortFrame [306:1250, 1150:1440].copy() # y1:y2 x1:x2
 
 
-'''
-folder_path = r'Data\CalibData'  # Путь к папке с изображениями
-image_extensions = ['.jpg', '.jpeg', '.png', '.bmp']  # Список допустимых расширений файлов
+    if blurSize >= 3:
+        viewUp = cv2.GaussianBlur(viewUp, (blurSize, blurSize), 0)
+
+    viewUp = cv2.cvtColor(viewUp, cv2.COLOR_BGR2GRAY)
+    viewUp = cv2.equalizeHist(viewUp)
+    
+
+    upEdges = cv2.Canny(viewUp, CannyThesh1,CannyThesh2)
+    upPxEdges = np.argwhere(upEdges == 255)
+    upPxEdges = upPxEdges[:, [1, 0]]
+
+    #white_pixels = np.array(white_pixels, dtype=np.float32)
+    # Отметка границ на изображении
+    #for y, x in upPxEdges:
+        #cv2.circle(viewUpSource, (x, y), 1, (0, 0, 255), -1)  # Рисуем красные точки
+    
+    ellipse = cv2.fitEllipse(upPxEdges)
+    cv2.ellipse(viewUpSource,ellipse,(255,255,255),2)
 
 
-images = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if any(f.endswith(ext) for ext in image_extensions)]
+    cv2.imshow('Canny viewUp Video', upEdges)
+    cv2.imshow('viewUp Video', viewUp)
+    cv2.imshow('Source Up', viewUpSource)
+
+    #cv2.imwrite( "Data//UndistertImages//Undist_frame_" + str(frameCount) + ".png", undistortFrame )
+    #cv2.imwrite( "Data//UndistertImages//Source_frame_" + str(frameCount) + ".png", frame )
+
+    frameCount +=1
 
 
-for fname in images:
-'''
+    #Circle video
+    if frameCount > 400:
+        cap.set(cv2.CAP_PROP_POS_MSEC , 34000)
+        frameCount = 1
+    #Exit
+    if cv2.waitKey(1) == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
 
 
