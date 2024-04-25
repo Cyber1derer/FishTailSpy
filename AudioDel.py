@@ -26,13 +26,27 @@ video_clip.write_videofile(output_without_audio, codec='libx264', fps=fps)
 video.release()
 
 '''
+
+
+import sys
+import os
+
+moviepy = False
+ffmpeg = False
 from moviepy.editor import VideoFileClip
-
-# Загрузка видеофайла
-video = VideoFileClip("D:\MyCodeProjects\FishTailSpy\Data\Fish\Source\Fish1.MP4")
-
-# Извлечение видеопотока без аудио
-video_without_audio = video.set_audio(None)
-
-# Запись нового видеофайла без аудиодорожки
-video_without_audio.write_videofile("output_video.mp4", codec="libx264", audio_codec="copy")
+if moviepy == True:
+    # Загрузка видеофайла
+    video = VideoFileClip("D:\MyCodeProjects\FishTailSpy\Data\Fish\Source\Fish2.MP4")
+    # Извлечение видеопотока без аудио
+    video_without_audio = video.set_audio(None)
+    # Запись нового видеофайла без аудиодорожки
+    video_without_audio.write_videofile('Data/Fish/outVideo.avi', codec="png", audio_codec="copy")
+elif ffmpeg == True:
+    # Need FFMPEG install to system
+    input_file='D:\MyCodeProjects\FishTailSpy\Data\Fish\Source\Fish2.MP4'
+    output_file='OutFFDelAu.MP4'
+    cmd = f'ffmpeg -i "{input_file}" -c copy -an "{output_file}"'
+    os.system(cmd)
+    #ffmpeg -i $input_file -c copy -an $output_file
+else:
+    print("Metods do not check")
