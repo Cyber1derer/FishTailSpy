@@ -242,7 +242,7 @@ def HistMod(img,flag = False):
 
 
 # Create window and trackbars
-cv2.namedWindow("Source Up", cv2.WINDOW_NORMAL)
+#cv2.namedWindow("Source Up", cv2.WINDOW_NORMAL)
 cv2.namedWindow("Canny viewUp Video")
 cv2.createTrackbar("CannyTresh1", "Canny viewUp Video" , CannyThresh1, 500, on_trackbar)
 cv2.createTrackbar("CannyTresh2", "Canny viewUp Video" , CannyThresh2, 500, on_trackbar)
@@ -267,6 +267,20 @@ clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
 
 CalHist = True
 
+
+
+# Create SIFT detector and descriptor
+sift = cv2.SIFT_create()
+
+object_boundary = [(314,528), (259,442), (233,393)]
+
+
+
+# Initialize the previous frame and its keypoints
+prev_frame = None
+prev_kp = None
+
+
 while ret:
     ret, frame = cap.read()
     if not ret:
@@ -288,30 +302,15 @@ while ret:
     # Convert to grayscale and equalize histogram
     viewUp = cv2.cvtColor(viewUp, cv2.COLOR_BGR2GRAY)
     if useEqualize:
-        viewUp = clahe.apply(viewUp)
-        #viewUp = cv2.equalizeHist(viewUp)
+        #viewUp = clahe.apply(viewUp)
+        viewUp = cv2.equalizeHist(viewUp)
         #viewUp = HistMod2(viewUp,CalHist)
         CalHist = False
-        #cv2.imwrite(viewUp)
-    
-    #viewUp = cv2.morphologyEx(viewUp, cv2.MORPH_OPEN, (15,15))
-
-
-
-
-  
-
-
 
 
     upEdges = cv2.Canny(viewUp, CannyThresh1,CannyThresh2,None,3,False)
-    upPxEdges = np.argwhere(upEdges == 255)
 
-    #KeyPoints
-    sift = cv2.SIFT_create()
-    kp = sift.detect(upEdges,None)
-    img=cv2.drawKeypoints(viewUp,kp,viewUpSource)
-    #cv2.imwrite('sift_keypoints.jpg',viewUpSource)
+    upPxEdges = np.argwhere(upEdges == 255)
 
 
     if upPxEdges.size == 0:
@@ -332,229 +331,74 @@ while ret:
         #print("L: ", hdist.argmax())
         lengFish = np.linalg.norm(hullpoints[bestpair[0]] - hullpoints[bestpair[1]]) 
         
+
+
+
         #Проверка, что не попало ничего лишнего
         if (lengFish > prew_lengFish*1.2 or lengFish < prew_lengFish*0.8)  and prew_lengFish != 0:
             print("False corn")
         else:
-            
-            # Display images
-            #cv2.imshow('Canny viewUp Video', upEdges)
-            #cv2.imshow('viewUp Video', viewUp)
-            #cv2.imshow('Source Up', viewUpSource)
-            cv2.waitKey(1)
             prew_lengFish = lengFish
-                    #Print them
-            #print("max dist points ",  [hullpoints[bestpair[0]],hullpoints[bestpair[1]]])
-            #Дальнейшие точки друг от друга
-            #cv2.circle(viewUpSource,(hullpoints[bestpair[0]] ), 2,(255,0,255), -1)
-            #cv2.circle(viewUpSource,(hullpoints[bestpair[1]] ), 2,(255,255,255), -1)
-            #cv2.circle(viewUpSource,(column_mean[0], column_mean[1]), 8,(255,0,255), -1) 
+            cv2.waitKey(1)
 
+            # Detect keypoints in the current frame
+            kp, des = sift.detectAndCompute(viewUpSource, None)
 
-            #=================================================================
-            #ellipse = cv2.fitEllipse(upPxEdges)
-            #(center, axes, angle) = ellipse
-            [vx, vy, x, y] = cv2.fitLine(upPxEdges, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
-            k = vy[0] / vx[0]
-            b = y[0] - k * x[0]
-            inflectionPoint = np.zeros(2, dtype=int)
-            # Вычисляем координаты концов линии для визуализации
-            rows, cols = viewUpSource.shape[:2]
-            left_x = 0
-            right_x = cols - 1
-            left_y = int(k * left_x + b)
-            right_y = int(k * right_x + b)
-            
-            # Рисуем линию на изображении
-            #cv2.line(viewUpSource, (left_x, left_y), (right_x, right_y), (0, 255, 255), 2) #Желтьая через всю рыбу
+            # If this is not the first frame, track the keypoints
+            if prev_kp is not None:
+                # Match the keypoints between the previous and current frames
+                matches = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE).match(des, prev_des)
 
-            #Смещение к хвосту ЗНАК ЗАВИСИТ ОТ ПОВОРОТА ПРЯМОЙ
-            #ic(vx,vy)
-            if vy > 0:
-                inflectionPoint[0] = x[0] - lengFish/6 * vx[0] 
-                inflectionPoint[1] = y[0] - lengFish/6 *vy[0]
-                #TODO сделать ограничитель меньше чем длина всей рыбы            
-                tailRange_x = x[0] - lengFish * vx[0] / math.sqrt(vx[0]**2 + vy[0]**2)
-                tailRange_y = y[0] - lengFish * vy[0] / math.sqrt(vx[0]**2 + vy[0]**2)
+                # Convert matches to list before sorting
+                matches = list(matches)
 
-                headRange_x = x[0] + ( lengFish * vx[0] / math.sqrt(vx[0]**2 + vy[0]**2) ) 
-                headRange_y = y[0] + ( lengFish * vy[0] / math.sqrt(vx[0]**2 + vy[0]**2) )
+                # Sort the matches by distance
+                matches.sort(key=lambda x: x.distance)
 
-            else:
-                inflectionPoint[0] = x[0] + lengFish/6 * vx[0] 
-                inflectionPoint[1] = y[0] + lengFish/6 *vy[0]
+                # Select the top 10 matches
+                good_matches = matches[:10]
 
-                tailRange_x = x[0] + lengFish * vx[0] / math.sqrt(vx[0]**2 + vy[0]**2)
-                tailRange_y = y[0] + lengFish * vy[0] / math.sqrt(vx[0]**2 + vy[0]**2)
+                # Draw the tracked keypoints
+                for m in good_matches:
+                    x1, y1 = kp[m.queryIdx].pt
+                    x2, y2 = prev_kp[m.trainIdx].pt
+                    cv2.line(viewUpSource, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
 
-                headRange_x = x[0] - lengFish * vx[0] / math.sqrt(vx[0]**2 + vy[0]**2)
-                headRange_y = y[0] - lengFish * vy[0] / math.sqrt(vx[0]**2 + vy[0]**2)
-
-
-            #cv2.circle(viewUpSource,(int(x[0]), int(y[0])), 2,(0,0,255), -1)
-            cv2.circle(viewUpSource,(int(inflectionPoint[0]), int(inflectionPoint[1])), 2,(0,0,255), -1) #Отрисовка поправленной точки стыковки хвоста
-            #cv2.circle(viewUpSource, (int(tailRange_x), int(tailRange_y)), 1, (255, 0, 0), -1) # Отрисовка облассти хвоста
-
-            tailFishContur = filter_points_between(upPxEdges, inflectionPoint, (int(tailRange_x), int(tailRange_y)) )
-            headFishContur = filter_points_between(upPxEdges, inflectionPoint, (int(headRange_x), int(headRange_y)) )
-
-            #NoseFish = find_farthest_point(vx, vy,x,y, headFishContur)
-
-            
-            closest_pairs = find_closest_pairs(headFishContur,tailFishContur )
-            #ic (closest_pairs)
-            realInflectionPoint = find_midpoint(closest_pairs)
-            ic(cap.get(cv2.CAP_PROP_POS_FRAMES))
-            NoseFish = find_farthest_point(vx, vy,x,y, headFishContur)
-            #NoseFish = find_farthest_point2(headFishContur, vx, vy,x,y)
-            if NoseFish is None:
-                print("Bad Nose")
-                continue
-            #Разкоменть
-            #cv2.circle(viewUpSource,NoseFish, 5,(0,0,255), -1) #Отрисовка поправленной точки стыковки хвоста
+            # Update the previous frame and its keypoints
+            prev_frame = frame
+            prev_kp = kp
+            prev_des = des
 
 
 
-            #ic (realInflectionPoint)
-            ''' Delete fin
-            headFishContur = []
-            for point_h in headFishContur_fh:
-                if (distance_to_line([vx, vy, x, y], point_h ) < 25 ):
-                    headFishContur.append(point_h)
-            
-            headFishContur = np.asarray(headFishContur)
+
 
             '''
-            center_h_x = np.mean(headFishContur[:, 0])
-            center_h_y = np.mean(headFishContur[:, 1])
-            center = (int(center_h_x), int(center_h_y))
+            kp, des = sift.detectAndCompute(viewUp, None)
 
-            '''PCA 
-            headFishConturf = np.float32(headFishContur)
-            # Вычисление главных компонент
-            mean, eigenvectors = cv2.PCACompute(headFishConturf, mean=None)
-            axis = eigenvectors[0]
-            # Вычисление угла поворота
-            angle = math.atan2(axis[1], axis[0])
-            start_point_h = (int(center[0]), int(center[1]))
-            end_point_h = (int(center[0] + axis[0]*100), int(center[1] + axis[1]*100))
-            cv2.line(viewUpSource, start_point_h, end_point_h, (255, 0, 255), 2)
-            '''
+             # Find matching keypoints between current frame and object boundary
+            matches = []
+            for kp_obj in object_boundary:
+                for kp_frame in kp:
+                    if kp_obj.pt == kp_frame.pt:
+                        matches.append((kp_obj, kp_frame))
 
-            '''Moment!!!
-            moments = cv2.moments(headFishContur)
-
-            angle = 0.5 * math.atan2(2 * moments["mu11"], (moments["mu20"] - moments["mu02"]))
-            angle = math.degrees(angle)
-
-            length = max(viewUpSource.shape[0], viewUpSource.shape[1]) // 4
-            start = (int(center_h_x - length * math.cos(math.radians(angle))),
-                    int(center_h_y - length * math.sin(math.radians(angle))))
-            end = (int(center_h_x + length * math.cos(math.radians(angle))),
-                int(center_h_y + length * math.sin(math.radians(angle))))
-            cv2.line(viewUpSource, start, end, (0, 255, 0), 2)
-
-            '''
-
-            
-            ''' Fit head
-            
-            [vx, vy, x, y] = cv2.fitLine(headFishContur, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
-
-            k = vy[0] / vx[0]
-            b = y[0] - k * x[0]
-            inflectionPoint = np.zeros(2, dtype=int)
-            # Вычисляем координаты концов линии для визуализации
-            rows, cols = viewUpSource.shape[:2]
-            left_x = 0
-            right_x = cols - 1
-            left_y = int(k * left_x + b)
-            right_y = int(k * right_x + b)
-            cv2.line(viewUpSource, (left_x, left_y), (right_x, right_y), (255, 0, 255), 2)
+            # Draw matched keypoints
+            for match in matches:
+                cv2.drawMarker(viewUpSource, match[0].pt, (0, 255, 0), cv2.MARKER_CROSS, 10)
+                cv2.drawMarker(viewUpSource, match[1].pt, (0, 0, 255), cv2.MARKER_CROSS, 10)
             '''
 
 
 
 
-            #"""XBOCT
-            [vx, vy, x, y] = cv2.fitLine(tailFishContur, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
-            k = vy[0] / vx[0]
-            b = y[0] - k * x[0]
-            ceterFish = np.zeros(2, dtype=int)
-            # Вычисляем координаты концов линии для визуализации
-            rows, cols = viewUpSource.shape[:2]
-            left_x = 0
-            right_x = cols - 1
-            left_y = int(k * left_x + b)
-            right_y = int(k * right_x + b)
-            #Разкоменть
-            #cv2.line(viewUpSource, (left_x, left_y), (right_x, right_y), (255, 0, 255), 2) #Красная ось симметрии хвоста
-            #"""
-
-            TailPointIndx = find_closest_points_to_line2(tailFishContur,vx, vy,x,y )
-            TailPoint = tailFishContur[TailPointIndx]
-            TailPoint = TailPoint[0]
-
-            #ic(TailPoint)
-
-            #Раcкоменть ''
-            '''
-            for x_t, y_t in tailFishContur:
-                cv2.circle(viewUpSource,( x_t, y_t), 1,(0,0,255), -1)
-
-            for x_h, y_h in headFishContur:
-                cv2.circle(viewUpSource,( x_h, y_h), 1,(255,0,0), -1)
-            '''
-
-            #cv2.circle(viewUpSource, realInflectionPoint , 2,(0,255,0), -1)
-            #Разкоменть 3 строки
-            #cv2.circle(viewUpSource, TailPoint , 1,(0,255,0), -1)
-           # cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 2 )
-            #cv2.line(viewUpSource, realInflectionPoint,TailPoint,(0,255,0), 2 )
-            tailAngle = calculate_angle(NoseFish, realInflectionPoint,TailPoint)
-            print("Угол: ", tailAngle)
-            '''
-            dirRect = cv2.minAreaRect(upPxEdges)
-            (centerRect, size, orientation) = dirRect
-            # Ориентация (угол поворота) прямоугольника
-            orientation = orientation * 180.0 / np.pi
-            major_axis_length_rect = max(size)
-
-            x1r = int(centerRect[0] - major_axis_length_rect * np.cos(orientation))
-            y1r = int(centerRect[1] - major_axis_length_rect * np.sin(orientation))
-            x2r = int(centerRect[0] + major_axis_length_rect * np.cos(orientation))
-            y2r = int(centerRect[1] + major_axis_length_rect * np.sin(orientation))
-            # Вычислите координаты вершин прямоугольника
-            box = cv2.boxPoints(dirRect)
-            box = np.int0(box)
-
-            # Нарисуйте ограничивающий прямоугольник
-            cv2.polylines(viewUpSource, [box], True, (0, 0, 255), 2)
-            '''
-            # Преобразуйте углы из градусов в радианы
-            #angle = (angle * np.pi / 180.0) + 90
-
-            # Вычислите концевые точки большой оси эллипса
-            #major_axis_len = max(axes)
-            #minor_axis_len = min(axes)
-            #x1 = int(center[0] - major_axis_len * np.cos(angle))
-            #y1 = int(center[1] - major_axis_len * np.sin(angle))
-            #x2 = int(center[0] + major_axis_len * np.cos(angle))
-            #y2 = int(center[1] + major_axis_len * np.sin(angle))
-
-            # Нарисуйте большую ось эллипса
-            #cv2.line(viewUpSource, (x1, y1), (x2, y2), (0, 255, 0), 1)
-            #cv2.circle(viewUpSource,(int(center[0]), int(center[1])), 4,(0,0,255), -1)
-
-        # cv2.line(viewUpSource, (x1r, y1r), (x2r, y2r), (255, 0, 0), 2)
-
-
-            #cv2.ellipse(viewUpSource,ellipse,(255,255,255),2)
 
 
 
 
         # Display images
+        
+        cv2.imshow('SIFT Tracker', viewUp)
         cv2.imshow('Canny viewUp Video', upEdges)
         cv2.imshow('viewUp Video', viewUp)
         cv2.imshow('Source Up', viewUpSource)
