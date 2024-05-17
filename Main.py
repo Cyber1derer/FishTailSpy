@@ -5,12 +5,11 @@ from scipy.spatial import ConvexHull
 from scipy.spatial.distance import cdist
 from icecream import ic
 import math
+from skimage.morphology import skeletonize
+from skimage.util import invert
 
-
-#TODO Зафиксировать гистограмму после 1 выранвнивания
 
 #global useEqualize, blurSize, CannyThesh1,CannyThesh2
-# Initialize default parameter values
 useEqualize = True
 blurSize = 3
 win_name = "FinderFish"
@@ -24,7 +23,7 @@ cap_end_msec = 24_000
 frame_end = (cap_end_msec - cap_start_msec) /20 
 import numpy as np
 
-def find_farthest_point(vx, vy, x, y, UpPx):    
+def find_farthest_point(vx, vy, x, y, UpPx, botdir = True):    
     # Вычисляем направляющий вектор прямой
     direction = np.array([vx, vy])
     direction = direction / np.linalg.norm(direction)
@@ -38,10 +37,11 @@ def find_farthest_point(vx, vy, x, y, UpPx):
     # Вычисляем проекции векторов на прямую
     projections = np.dot(vectors, direction)
     
-    
-    # Найдем индекс точки с максимальной проекцией
-    idx = np.argmax(np.abs(projections))
-    
+    if botdir:
+        # Найдем индекс точки с максимальной проекцией
+        idx = np.argmax(projections)
+    else:
+        idx = np.argmin(projections)
     # Возвращаем наиболее удаленную точку
     return points[idx]
 
@@ -106,17 +106,7 @@ def find_midpoint(pairs):
 
 
 def distance_to_line(line_params, point): 
-  """
-  Вычисляет расстояние от точки до прямой, заданной параметрами cv2.fitLine.
-  Можно использовать для обрезки плавников
 
-  Args:
-      line_params: Массив [vx, vy, x, y], полученный с помощью cv2.fitLine.
-      point: Двумерный массив, представляющий координаты точки (x, y).
-
-  Returns:
-      Расстояние от точки до прямой.
-  """
   vx, vy, x0, y0 = line_params
   x1, y1 = point
   # Находим уравнение прямой в виде ax + by + c = 0
@@ -128,26 +118,13 @@ def distance_to_line(line_params, point):
   return distance
 
 def find_closest_points_to_line2(PointsOfInterest, vx, vy, x, y):
-    """
-    Find all 2D points in UpPX that are at a minimum distance from the line defined by [vx, vy, x, y]
 
-    Parameters:
-    - UpPX: 2D array of shape (n, 2) containing the points to check
-    - vx, vy, x, y: parameters of the line (from cv2.fitLine())
-
-    Returns:
-    - indices: array of indices of the points in UpPX that are at a minimum distance from the line
-    """
-    # Convert UpPX to a numpy array if it's not already
     PointsOfInterest = np.asarray(PointsOfInterest)
 
-    # Calculate the distance from each point to the line
     distances = np.abs((vy * (PointsOfInterest[:, 0] - x) - vx * (PointsOfInterest[:, 1] - y)) / np.sqrt(vx**2 + vy**2))
 
-    # Find the minimum distance
     min_distance = np.min(distances)
 
-    # Find the indices of the points that are at a minimum distance from the line
     indices = np.where(distances < 0.8)[0]
     #ic(indices)
     return indices
@@ -156,13 +133,7 @@ def filter_points_between(white_pixels, start_point, end_point):
     Фильтрует набор двумерных точек white_pixels, оставляя только те, которые
     лежат между точками start_point и end_point.
     Используется для разделения тела на голову и хвост
-    Параметры:
-    white_pixels (np.ndarray): Набор двумерных точек (x, y)
-    start_point (tuple): Начальная точка (x, y)
-    end_point (tuple): Конечная точка (x, y)
-    
-    Возвращает:
-    np.ndarray: Отфильтрованный набор точек, лежащих между start_point и end_point
+  
     """
     # Вычисляем вектор между start_point и end_point
     vector = np.array(end_point) - np.array(start_point)
@@ -196,6 +167,67 @@ def calculate_angle(NoseFish, realInflectionPoint, TailPoint):
     angle_deg = math.degrees(angle_rad)
 
     return angle_deg
+
+def reduce_binary_objects(up_px, source_img):
+    """
+    Reduces binary objects to 1 pixel wide representations.
+
+    Args:
+        up_px (list of tuples): Contour points of the object
+        source_img (numpy array): Original image
+
+    Returns:
+        numpy array: Source image with the reduced line drawn
+    """
+    # Initialize an empty image with the same size as the source image
+    reduced_img = np.zeros_like(source_img)
+
+    # Iterate over each contour point
+    for i in range(len(up_px) - 1):
+        # Get the current and next points
+        x1, y1 = up_px[i]
+        x2, y2 = up_px[i + 1]
+
+        # Calculate the slope and intercept of the line segment
+        dx, dy = x2 - x1, y2 - y1
+        slope = dy / dx if dx!= 0 else float('inf')
+        intercept = y1 - slope * x1
+
+        # Iterate over each pixel in the line segment
+        for x in range(min(x1, x2), max(x1, x2) + 1):
+            y = int(slope * x + intercept)
+            reduced_img[y, x] = 255
+
+    # Draw the reduced line on the source image using OpenCV
+    cv2.line(source_img, tuple(up_px[0]), tuple(up_px[-1]), (0, 255, 0), 1)
+
+    return source_img
+
+# Функция для заполнения контуров белым цветом
+def fill_contours(image):
+    # Находим контуры
+    contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if len(contours)> 1: 
+        contours = max(contours, key=cv2.contourArea)
+    elif len(contours) <1:
+        print("NoCounters")
+        exit()
+    #contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    #contours2 = contours[0]
+
+    # Создаем маску с тем же размером, что и у входного изображения, но полностью черная
+    mask = np.zeros(image.shape, np.uint8)
+    
+    # Заполняем контуры на маске белым цветом
+    cv2.drawContours(mask, contours[0], -1, (255, 255, 255), cv2.FILLED)
+    
+    # Создаем белое изображение с тем же размером, что и у входного изображения
+    white_image = np.full(image.shape, 255, dtype=np.uint8)
+    
+    # Используем маску для заполнения исходного изображения
+    result = cv2.bitwise_and(white_image, white_image, mask=mask)
+    
+    return result
 def on_trackbar(val):
     global  CannyThresh1,CannyThresh2, blurSize
     CannyThresh1 = cv2.getTrackbarPos('CannyTresh1', "Canny viewUp Video")
@@ -274,29 +306,50 @@ while ret:
             print("False corn")
         else:
             prew_lengFish = lengFish
-                    #Print them
-            #print("max dist points ",  [hullpoints[bestpair[0]],hullpoints[bestpair[1]]])
-            cv2.circle(viewUpSource,(hullpoints[bestpair[0]] ), 2,(255,0,255), -1)
-            cv2.circle(viewUpSource,(hullpoints[bestpair[1]] ), 2,(255,255,255), -1)
-            #cv2.circle(viewUpSource,(column_mean[0], column_mean[1]), 8,(255,0,255), -1) 
+
+            # Создаем копию для заполнения
+            fillupEdges = upEdges.copy()
+            # Структурный элемент для морфологических операций
+            kernel = np.ones((5, 5), np.uint8)
+            # Применяем морфологическое замыкание
+            closedEdges = cv2.morphologyEx(fillupEdges, cv2.MORPH_CLOSE, kernel)
+            # Находим контуры на замкнутом изображении
+            contours, _ = cv2.findContours(closedEdges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            # Создаем пустое изображение для заполнения
+            filledImage = np.zeros_like(fillupEdges)
+            # Заполняем найденные контуры белым цветом
+            cv2.fillPoly(filledImage, contours, 255)
+            fillFish = filledImage
 
 
-            #=================================================================
-            #ellipse = cv2.fitEllipse(upPxEdges)
-            #(center, axes, angle) = ellipse
-            [vx, vy, x, y] = cv2.fitLine(upPxEdges, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
+            #cv2.imshow('Filled Contours', fillFish)
+            cv2.imshow('Filled Contours2', filledImage)
+            #Прямая по заполненой рыбе
+            k, l = np.where(fillFish == 255)
+            # Сохраните координаты в двумерный массив для использования с fitLine
+            white_pixels_mask = np.column_stack((l, k))
+            [vx, vy, x, y] = cv2.fitLine(white_pixels_mask, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
             k = vy[0] / vx[0]
             b = y[0] - k * x[0]
-            inflectionPoint = np.zeros(2, dtype=int)
             # Вычисляем координаты концов линии для визуализации
             rows, cols = viewUpSource.shape[:2]
             left_x = 0
             right_x = cols - 1
             left_y = int(k * left_x + b)
             right_y = int(k * right_x + b)
+            #cv2.line(viewUpSource, (left_x, left_y), (right_x, right_y), (255, 0, 255), 2) #Фиолетовая через всю рыбу
+
+            inflectionPoint = np.zeros(2, dtype=int)
+
+
+            try:
+                NoseFish = find_farthest_point(vx, vy,x,y, upPxEdges)
+            except IndexError:
+                NoseFish = None  # Возвращаем None при возникновении ошибки
+                print("Nose Error ")
+                continue
             
-            # Рисуем линию на изображении
-            #cv2.line(viewUpSource, (left_x, left_y), (right_x, right_y), (0, 255, 255), 2) #Желтьая через всю рыбу
 
             #Смещение к хвосту ЗНАК ЗАВИСИТ ОТ ПОВОРОТА ПРЯМОЙ
             #ic(vx,vy)
@@ -322,83 +375,29 @@ while ret:
 
 
             #cv2.circle(viewUpSource,(int(x[0]), int(y[0])), 2,(0,0,255), -1)
-            cv2.circle(viewUpSource,(int(inflectionPoint[0]), int(inflectionPoint[1])), 2,(0,0,255), -1) #Отрисовка поправленной точки стыковки хвоста
+            #cv2.circle(viewUpSource,(int(inflectionPoint[0]), int(inflectionPoint[1])), 2,(0,0,255), -1) #Отрисовка поправленной точки стыковки хвоста
             #cv2.circle(viewUpSource, (int(tailRange_x), int(tailRange_y)), 1, (255, 0, 0), -1) # Отрисовка облассти хвоста
 
-            tailFishContur = filter_points_between(upPxEdges, inflectionPoint, (int(tailRange_x), int(tailRange_y)) )
-            headFishContur = filter_points_between(upPxEdges, inflectionPoint, (int(headRange_x), int(headRange_y)) )
+            tailFishContur = filter_points_between(white_pixels_mask, inflectionPoint, (int(tailRange_x), int(tailRange_y)) )
+            headFishContur = filter_points_between(white_pixels_mask, inflectionPoint, (int(headRange_x), int(headRange_y)) )
 
-            NoseFish = find_farthest_point(vx, vy,x,y, headFishContur)
-   
             
-            closest_pairs = find_closest_pairs(headFishContur,tailFishContur )
-            #ic (closest_pairs)
+            skeleton = skeletonize(fillFish)
+                # Находим координаты пикселей скелета
+            skeletCurve = np.column_stack(np.where(skeleton))
+            for Skpoint in skeletCurve:
+                cv2.circle(viewUpSource, (Skpoint[1], Skpoint[0]), 1, (0, 0, 255), -1)
+            #cv2.imshow('Skelet', skeleton)
+
+
+            closest_pairs = find_closest_pairs(headFishContur,tailFishContur ) 
+            #ic(closest_pairs[0][0]) 
+
             realInflectionPoint = find_midpoint(closest_pairs)
-            NoseFish = find_farthest_point(vx, vy,x,y, headFishContur)
 
-
-
-
-            #ic (realInflectionPoint)
-            ''' Delete fin
-            headFishContur = []
-            for point_h in headFishContur_fh:
-                if (distance_to_line([vx, vy, x, y], point_h ) < 25 ):
-                    headFishContur.append(point_h)
-            
-            headFishContur = np.asarray(headFishContur)
-
-            '''
             center_h_x = np.mean(headFishContur[:, 0])
             center_h_y = np.mean(headFishContur[:, 1])
             center = (int(center_h_x), int(center_h_y))
-
-            '''PCA 
-            headFishConturf = np.float32(headFishContur)
-            # Вычисление главных компонент
-            mean, eigenvectors = cv2.PCACompute(headFishConturf, mean=None)
-            axis = eigenvectors[0]
-            # Вычисление угла поворота
-            angle = math.atan2(axis[1], axis[0])
-            start_point_h = (int(center[0]), int(center[1]))
-            end_point_h = (int(center[0] + axis[0]*100), int(center[1] + axis[1]*100))
-            cv2.line(viewUpSource, start_point_h, end_point_h, (255, 0, 255), 2)
-            '''
-
-            '''Moment!!!
-            moments = cv2.moments(headFishContur)
-
-            angle = 0.5 * math.atan2(2 * moments["mu11"], (moments["mu20"] - moments["mu02"]))
-            angle = math.degrees(angle)
-
-            length = max(viewUpSource.shape[0], viewUpSource.shape[1]) // 4
-            start = (int(center_h_x - length * math.cos(math.radians(angle))),
-                    int(center_h_y - length * math.sin(math.radians(angle))))
-            end = (int(center_h_x + length * math.cos(math.radians(angle))),
-                int(center_h_y + length * math.sin(math.radians(angle))))
-            cv2.line(viewUpSource, start, end, (0, 255, 0), 2)
-
-            '''
-
-            
-            ''' Fit head
-            
-            [vx, vy, x, y] = cv2.fitLine(headFishContur, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
-
-            k = vy[0] / vx[0]
-            b = y[0] - k * x[0]
-            inflectionPoint = np.zeros(2, dtype=int)
-            # Вычисляем координаты концов линии для визуализации
-            rows, cols = viewUpSource.shape[:2]
-            left_x = 0
-            right_x = cols - 1
-            left_y = int(k * left_x + b)
-            right_y = int(k * right_x + b)
-            cv2.line(viewUpSource, (left_x, left_y), (right_x, right_y), (255, 0, 255), 2)
-            '''
-
-
-
 
             #"""XBOCT
             [vx, vy, x, y] = cv2.fitLine(tailFishContur, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
@@ -419,64 +418,28 @@ while ret:
             TailPoint = TailPoint[0]
 
             #ic(TailPoint)
-            for x_t, y_t in tailFishContur:
-                cv2.circle(viewUpSource,( x_t, y_t), 1,(0,0,255), -1)
+            #for x_t, y_t in tailFishContur:
+            #    cv2.circle(viewUpSource,( x_t, y_t), 1,(0,0,255), -1)
 
-            for x_h, y_h in headFishContur:
-                cv2.circle(viewUpSource,( x_h, y_h), 1,(255,0,0), -1)
+            #for x_h, y_h in headFishContur:
+            #    cv2.circle(viewUpSource,( x_h, y_h), 1,(255,0,0), -1)
 
-            #cv2.circle(viewUpSource, realInflectionPoint , 2,(0,255,0), -1)
+            #PaintHullPoints
+            #cv2.circle(viewUpSource,(hullpoints[bestpair[0]] ), 2,(255,0,255), -1)
+            #cv2.circle(viewUpSource,(hullpoints[bestpair[1]] ), 2,(255,0,255), -1)
+            cv2.circle(viewUpSource, realInflectionPoint , 2,(0,255,0), -1)
             cv2.circle(viewUpSource, TailPoint , 1,(0,255,0), -1)
-            cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 2 )
-            cv2.line(viewUpSource, realInflectionPoint,TailPoint,(0,255,0), 2 )
+            #cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 2 )
+            #cv2.line(viewUpSource, realInflectionPoint,TailPoint,(0,255,0), 2 )
             tailAngle = calculate_angle(NoseFish, realInflectionPoint,TailPoint)
             print("Угол: ", tailAngle)
-            '''
-            dirRect = cv2.minAreaRect(upPxEdges)
-            (centerRect, size, orientation) = dirRect
-            # Ориентация (угол поворота) прямоугольника
-            orientation = orientation * 180.0 / np.pi
-            major_axis_length_rect = max(size)
-
-            x1r = int(centerRect[0] - major_axis_length_rect * np.cos(orientation))
-            y1r = int(centerRect[1] - major_axis_length_rect * np.sin(orientation))
-            x2r = int(centerRect[0] + major_axis_length_rect * np.cos(orientation))
-            y2r = int(centerRect[1] + major_axis_length_rect * np.sin(orientation))
-            # Вычислите координаты вершин прямоугольника
-            box = cv2.boxPoints(dirRect)
-            box = np.int0(box)
-
-            # Нарисуйте ограничивающий прямоугольник
-            cv2.polylines(viewUpSource, [box], True, (0, 0, 255), 2)
-            '''
-            # Преобразуйте углы из градусов в радианы
-            #angle = (angle * np.pi / 180.0) + 90
-
-            # Вычислите концевые точки большой оси эллипса
-            #major_axis_len = max(axes)
-            #minor_axis_len = min(axes)
-            #x1 = int(center[0] - major_axis_len * np.cos(angle))
-            #y1 = int(center[1] - major_axis_len * np.sin(angle))
-            #x2 = int(center[0] + major_axis_len * np.cos(angle))
-            #y2 = int(center[1] + major_axis_len * np.sin(angle))
-
-            # Нарисуйте большую ось эллипса
-            #cv2.line(viewUpSource, (x1, y1), (x2, y2), (0, 255, 0), 1)
-            #cv2.circle(viewUpSource,(int(center[0]), int(center[1])), 4,(0,0,255), -1)
-
-        # cv2.line(viewUpSource, (x1r, y1r), (x2r, y2r), (255, 0, 0), 2)
-
-
-            #cv2.ellipse(viewUpSource,ellipse,(255,255,255),2)
-
-
 
 
         # Display images
         cv2.imshow('Canny viewUp Video', upEdges)
         cv2.imshow('viewUp Video', viewUp)
         cv2.imshow('Source Up', viewUpSource)
-
+        #cv2.imwrite('TestImgHist.png', viewUp)
         #cv2.imwrite( "Data//UndistertImages//Undist_frame_" + str(frameCount) + ".png", undistortFrame )
         #cv2.imwrite( "Data//UndistertImages//Source_frame_" + str(frameCount) + ".png", frame )
 
@@ -487,7 +450,7 @@ while ret:
         cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
         frameCount = 1
     #Exit loop if 'q' is pressed
-    if cv2.waitKey(1000) == ord('q'):
+    if cv2.waitKey(0) == ord('q'):
         break
 
 cap.release()
