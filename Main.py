@@ -347,7 +347,7 @@ while ret:
                     headFishContur.append(point_h)
             
             headFishContur = np.asarray(headFishContur)
-
+            @s
             '''
             center_h_x = np.mean(headFishContur[:, 0])
             center_h_y = np.mean(headFishContur[:, 1])
