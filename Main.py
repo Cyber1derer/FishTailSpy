@@ -106,17 +106,7 @@ def find_midpoint(pairs):
 
 
 def distance_to_line(line_params, point): 
-  """
-  Вычисляет расстояние от точки до прямой, заданной параметрами cv2.fitLine.
-  Можно использовать для обрезки плавников
 
-  Args:
-      line_params: Массив [vx, vy, x, y], полученный с помощью cv2.fitLine.
-      point: Двумерный массив, представляющий координаты точки (x, y).
-
-  Returns:
-      Расстояние от точки до прямой.
-  """
   vx, vy, x0, y0 = line_params
   x1, y1 = point
   # Находим уравнение прямой в виде ax + by + c = 0
@@ -128,16 +118,7 @@ def distance_to_line(line_params, point):
   return distance
 
 def find_closest_points_to_line2(PointsOfInterest, vx, vy, x, y):
-    """
-    Find all 2D points in UpPX that are at a minimum distance from the line defined by [vx, vy, x, y]
-
-    Parameters:
-    - UpPX: 2D array of shape (n, 2) containing the points to check
-    - vx, vy, x, y: parameters of the line (from cv2.fitLine())
-
-    Returns:
-    - indices: array of indices of the points in UpPX that are at a minimum distance from the line
-    """
+    
     # Convert UpPX to a numpy array if it's not already
     PointsOfInterest = np.asarray(PointsOfInterest)
 
@@ -156,13 +137,7 @@ def filter_points_between(white_pixels, start_point, end_point):
     Фильтрует набор двумерных точек white_pixels, оставляя только те, которые
     лежат между точками start_point и end_point.
     Используется для разделения тела на голову и хвост
-    Параметры:
-    white_pixels (np.ndarray): Набор двумерных точек (x, y)
-    start_point (tuple): Начальная точка (x, y)
-    end_point (tuple): Конечная точка (x, y)
     
-    Возвращает:
-    np.ndarray: Отфильтрованный набор точек, лежащих между start_point и end_point
     """
     # Вычисляем вектор между start_point и end_point
     vector = np.array(end_point) - np.array(start_point)
@@ -487,7 +462,7 @@ while ret:
         cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
         frameCount = 1
     #Exit loop if 'q' is pressed
-    if cv2.waitKey(1000) == ord('q'):
+    if cv2.waitKey(0) == ord('q'):
         break
 
 cap.release()
