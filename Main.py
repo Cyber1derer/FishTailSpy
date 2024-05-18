@@ -18,13 +18,20 @@ CannyThresh2 = 240
 frameCount = 1
 ret = True
 prew_lengFish = 0
-cap_start_msec = 21_000
-cap_end_msec = 24_000
+#cap_start_msec = 22_000
+#cap_end_msec = 24_000
+
+cap_start_msec = 323750
+cap_end_msec = 324725
+
 frame_end = (cap_end_msec - cap_start_msec) /20 
 import numpy as np
 
 def find_farthest_point(vx, vy, x, y, UpPx, botdir = True):    
     # Вычисляем направляющий вектор прямой
+    if vy < 0:
+        vy = -vy
+        print("Костыль жесткий")
     direction = np.array([vx, vy])
     direction = direction / np.linalg.norm(direction)
     
@@ -36,7 +43,6 @@ def find_farthest_point(vx, vy, x, y, UpPx, botdir = True):
     
     # Вычисляем проекции векторов на прямую
     projections = np.dot(vectors, direction)
-    
     if botdir:
         # Найдем индекс точки с максимальной проекцией
         idx = np.argmax(projections)
@@ -77,16 +83,14 @@ def find_closest_pairs(points1, points2):
 
     # Находим индексы пар точек с минимальным расстоянием
     min_dist_indices = np.where(dist_matrix == min_dist)
-
+    sorted_distances = np.dstack(np.unravel_index(np.argsort(dist_matrix.ravel()), dist_matrix.shape))[0]
     # Возвращаем пары точек с минимальным расстоянием
     point1_indices = min_dist_indices[0]
     point2_indices = min_dist_indices[1]
     closest_pairs = [(points1[i], points2[j]) for i, j in zip(point1_indices, point2_indices)]
-    #ic(closest_pairs)
    #print("Пары точек с минимальным расстоянием:")
     #for pair in closest_pairs:
         #print(pair)
-        #ic(pair)
     return closest_pairs
 
 def find_midpoint(pairs):
@@ -126,7 +130,6 @@ def find_closest_points_to_line2(PointsOfInterest, vx, vy, x, y):
     min_distance = np.min(distances)
 
     indices = np.where(distances < 0.8)[0]
-    #ic(indices)
     return indices
 def filter_points_between(white_pixels, start_point, end_point):
     """
@@ -262,8 +265,8 @@ while ret:
     # Undistort frame
     undistortFrame = cv2.undistort(frame, mtx, dist)
     # Extract region of interest
-    viewUp = undistortFrame[250:1400, 1050:1440].copy() # y1:y2 x1:x2
-    viewUpSource = undistortFrame [250:1400, 1050:1440].copy() # y1:y2 x1:x2
+    viewUp = undistortFrame[250:1400, 1025:1440].copy() # y1:y2 x1:x2
+    viewUpSource = undistortFrame [250:1400, 1025:1440].copy() # y1:y2 x1:x2
     viewSource = undistortFrame.copy() # y1:y2 x1:x2
 
     # Apply Gaussian blur if blur size is valid
@@ -276,22 +279,39 @@ while ret:
     viewUp = cv2.cvtColor(viewUp, cv2.COLOR_BGR2GRAY)
     if useEqualize:
         viewUp = cv2.equalizeHist(viewUp)
-    
-    #viewUp = cv2.morphologyEx(viewUp, cv2.MORPH_OPEN, (15,15))
-
+            
     upEdges = cv2.Canny(viewUp, CannyThresh1,CannyThresh2,None,3,False)
     upPxEdges = np.argwhere(upEdges == 255)
+
+    #viewUp = cv2.morphologyEx(viewUp, cv2.MORPH_OPEN, (15,15))
+     # Создаем копию для заполнения
+    fillupEdges = upEdges.copy()
+    # Структурный элемент для морфологических операций
+    kernel = np.ones((5, 5), np.uint8)
+    # Применяем морфологическое замыкание
+    closedEdges = cv2.morphologyEx(fillupEdges, cv2.MORPH_CLOSE, kernel)
+
+    # Находим контуры на замкнутом изображении
+    contours, _ = cv2.findContours(closedEdges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    max_contour = max(contours, key=cv2.contourArea)
+    max_contour2_flat = np.squeeze(max_contour)
+    max_contour = [max_contour]
+    # Создаем пустое изображение для заполнения
+    filledImage = np.zeros_like(fillupEdges)
+    # Заполняем найденные контуры белым цветом
+    cv2.fillPoly(filledImage, max_contour, 255)
+    fillFish = filledImage
+    #cv2.imshow('Filled Contours', fillFish)
+    cv2.imshow('Filled Contours2', filledImage)
 
     if upPxEdges.size == 0:
         print("Edges not found")
     else:
         upPxEdges = upPxEdges[:, [1, 0]]
-        
         #Find end's points===========
-        # Returned 420 points in testing
-        hull = ConvexHull(upPxEdges)
+        hull = ConvexHull(max_contour2_flat)
         # Extract the points forming the hull
-        hullpoints = upPxEdges[hull.vertices,:]
+        hullpoints = max_contour2_flat[hull.vertices,:]
         # Naive way of finding the best pair in O(H^2) time if H is number of points on
         # hull
         hdist = cdist(hullpoints, hullpoints, metric='euclidean')
@@ -302,33 +322,17 @@ while ret:
         lengFish = np.linalg.norm(hullpoints[bestpair[0]] - hullpoints[bestpair[1]]) 
         
         #Проверка, что не попало ничего лишнего
-        if (lengFish > prew_lengFish*1.2 or lengFish < prew_lengFish*0.8)  and prew_lengFish != 0:
+        if (lengFish > prew_lengFish*1.3 or lengFish < prew_lengFish*0.7)  and prew_lengFish != 0:
             print("False corn")
         else:
             prew_lengFish = lengFish
 
-            # Создаем копию для заполнения
-            fillupEdges = upEdges.copy()
-            # Структурный элемент для морфологических операций
-            kernel = np.ones((5, 5), np.uint8)
-            # Применяем морфологическое замыкание
-            closedEdges = cv2.morphologyEx(fillupEdges, cv2.MORPH_CLOSE, kernel)
-            # Находим контуры на замкнутом изображении
-            contours, _ = cv2.findContours(closedEdges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-            # Создаем пустое изображение для заполнения
-            filledImage = np.zeros_like(fillupEdges)
-            # Заполняем найденные контуры белым цветом
-            cv2.fillPoly(filledImage, contours, 255)
-            fillFish = filledImage
-
-
-            #cv2.imshow('Filled Contours', fillFish)
-            cv2.imshow('Filled Contours2', filledImage)
+           
             #Прямая по заполненой рыбе
             k, l = np.where(fillFish == 255)
             # Сохраните координаты в двумерный массив для использования с fitLine
             white_pixels_mask = np.column_stack((l, k))
+            
             [vx, vy, x, y] = cv2.fitLine(white_pixels_mask, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
             k = vy[0] / vx[0]
             b = y[0] - k * x[0]
@@ -343,8 +347,8 @@ while ret:
             inflectionPoint = np.zeros(2, dtype=int)
 
 
-            try:
-                NoseFish = find_farthest_point(vx, vy,x,y, upPxEdges)
+            try: #TODO Fix
+                NoseFish = find_farthest_point(vx, vy,x,y, max_contour2_flat)
             except IndexError:
                 NoseFish = None  # Возвращаем None при возникновении ошибки
                 print("Nose Error ")
@@ -352,7 +356,6 @@ while ret:
             
 
             #Смещение к хвосту ЗНАК ЗАВИСИТ ОТ ПОВОРОТА ПРЯМОЙ
-            #ic(vx,vy)
             if vy > 0:
                 inflectionPoint[0] = x[0] - lengFish/6 * vx[0] 
                 inflectionPoint[1] = y[0] - lengFish/6 *vy[0]
@@ -381,7 +384,6 @@ while ret:
             tailFishContur = filter_points_between(white_pixels_mask, inflectionPoint, (int(tailRange_x), int(tailRange_y)) )
             headFishContur = filter_points_between(white_pixels_mask, inflectionPoint, (int(headRange_x), int(headRange_y)) )
 
-            
             skeleton = skeletonize(fillFish)
                 # Находим координаты пикселей скелета
             skeletCurve = np.column_stack(np.where(skeleton))
@@ -390,11 +392,31 @@ while ret:
             #cv2.imshow('Skelet', skeleton)
 
 
-            closest_pairs = find_closest_pairs(headFishContur,tailFishContur ) 
-            #ic(closest_pairs[0][0]) 
-
-            realInflectionPoint = find_midpoint(closest_pairs)
-
+            #closest_pairs = find_closest_pairs(headFishContur,tailFishContur ) 
+            #realInflectionPoint = find_midpoint(closest_pairs)
+            #min_distance = float('inf')
+            #closest_point = None
+            '''
+            # Находим угловой коэффициент перпендикуляра
+            p_k = -1 / k
+            # Находим свободный коэффициент
+            b = inflectionPoint[1] - p_k * inflectionPoint[0]
+            for x_i, y_i in skeletCurve:
+                distanceSkelet = abs(y_i - (p_k*x_i + b)) / np.sqrt(1 + p_k**2)
+                    # Обновляем минимальное расстояние и ближайшую точку, если необходимо
+                if distanceSkelet < min_distance:
+                    min_distance = distanceSkelet
+                    closest_point = (y_i,x_i)
+            '''
+            realInflectionPoint = filter_points_between(skeletCurve,inflectionPoint,( int(inflectionPoint[0] + 1) , int(inflectionPoint[1] + 1) ) ) #TODO Подобрать вместо +1
+            if len(realInflectionPoint) > 0:
+                realInflectionPoint = realInflectionPoint[0]
+            else:
+                print("realInflectionPoint not found")
+            save = realInflectionPoint[0]
+            realInflectionPoint[0] = realInflectionPoint[1]
+            realInflectionPoint[1] = save
+            
             center_h_x = np.mean(headFishContur[:, 0])
             center_h_y = np.mean(headFishContur[:, 1])
             center = (int(center_h_x), int(center_h_y))
@@ -417,7 +439,6 @@ while ret:
             TailPoint = tailFishContur[TailPointIndx]
             TailPoint = TailPoint[0]
 
-            #ic(TailPoint)
             #for x_t, y_t in tailFishContur:
             #    cv2.circle(viewUpSource,( x_t, y_t), 1,(0,0,255), -1)
 
@@ -429,7 +450,7 @@ while ret:
             #cv2.circle(viewUpSource,(hullpoints[bestpair[1]] ), 2,(255,0,255), -1)
             cv2.circle(viewUpSource, realInflectionPoint , 2,(0,255,0), -1)
             cv2.circle(viewUpSource, TailPoint , 1,(0,255,0), -1)
-            #cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 2 )
+            cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 2 )
             #cv2.line(viewUpSource, realInflectionPoint,TailPoint,(0,255,0), 2 )
             tailAngle = calculate_angle(NoseFish, realInflectionPoint,TailPoint)
             print("Угол: ", tailAngle)
