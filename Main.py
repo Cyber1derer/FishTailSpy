@@ -7,6 +7,7 @@ from icecream import ic
 import math
 from skimage.morphology import skeletonize
 from skimage.util import invert
+import matplotlib.pyplot as plt
 
 
 #global useEqualize, blurSize, CannyThesh1,CannyThesh2
@@ -20,7 +21,7 @@ ret = True
 prew_lengFish = 0
 #cap_start_msec = 22_000
 #cap_end_msec = 24_000
-
+pxCenterFish = []
 cap_start_msec = 323750
 cap_end_msec = 324725
 
@@ -255,7 +256,7 @@ cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
 data = np.load("camera_params.npz")
 mtx = data['mtx']
 dist = data['dist']
-
+TailAngle = []
 
 while ret:
     ret, frame = cap.read()
@@ -269,6 +270,7 @@ while ret:
     viewUpSource = undistortFrame [250:1400, 1025:1440].copy() # y1:y2 x1:x2
     viewSource = undistortFrame.copy() # y1:y2 x1:x2
 
+    viewMirror = undistortFrame[250:1400, 1025:1440].copy() # y1:y2 x1:x2
     # Apply Gaussian blur if blur size is valid
     if blurSize >= 3:
         if blurSize % 2 == 0 and blurSize !=0 :
@@ -334,6 +336,7 @@ while ret:
             white_pixels_mask = np.column_stack((l, k))
             
             [vx, vy, x, y] = cv2.fitLine(white_pixels_mask, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
+            pxCenterFish.append( [x,y] )
             k = vy[0] / vx[0]
             b = y[0] - k * x[0]
             # Вычисляем координаты концов линии для визуализации
@@ -387,8 +390,8 @@ while ret:
             skeleton = skeletonize(fillFish)
                 # Находим координаты пикселей скелета
             skeletCurve = np.column_stack(np.where(skeleton))
-            for Skpoint in skeletCurve:
-                cv2.circle(viewUpSource, (Skpoint[1], Skpoint[0]), 1, (0, 0, 255), -1)
+            #for Skpoint in skeletCurve:
+                #cv2.circle(viewUpSource, (Skpoint[1], Skpoint[0]), 1, (0, 0, 255), -1)
             #cv2.imshow('Skelet', skeleton)
 
 
@@ -408,7 +411,11 @@ while ret:
                     min_distance = distanceSkelet
                     closest_point = (y_i,x_i)
             '''
-            realInflectionPoint = filter_points_between(skeletCurve,inflectionPoint,( int(inflectionPoint[0] + 1) , int(inflectionPoint[1] + 1) ) ) #TODO Подобрать вместо +1
+            realInflectionPoint = filter_points_between(skeletCurve,inflectionPoint,( int(inflectionPoint[0]) , int(inflectionPoint[1] ) ) ) #TODO Подобрать вместо +1
+            if len(realInflectionPoint) < 1:
+                realInflectionPoint = filter_points_between(skeletCurve,inflectionPoint,( int(inflectionPoint[0] + 0.25) , int(inflectionPoint[1] + 0.25 ) ) ) #TODO Подобрать вместо +1
+            if len(realInflectionPoint) < 1:
+                realInflectionPoint = filter_points_between(skeletCurve,inflectionPoint,( int(inflectionPoint[0] + 1) , int(inflectionPoint[1] + 1) ) ) #TODO Подобрать вместо +1
             if len(realInflectionPoint) > 0:
                 realInflectionPoint = realInflectionPoint[0]
             else:
@@ -450,13 +457,14 @@ while ret:
             #cv2.circle(viewUpSource,(hullpoints[bestpair[1]] ), 2,(255,0,255), -1)
             cv2.circle(viewUpSource, realInflectionPoint , 2,(0,255,0), -1)
             cv2.circle(viewUpSource, TailPoint , 1,(0,255,0), -1)
-            cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 2 )
-            #cv2.line(viewUpSource, realInflectionPoint,TailPoint,(0,255,0), 2 )
+            cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 1 )
+            cv2.line(viewUpSource, realInflectionPoint,TailPoint,(0,255,0), 1 )
             tailAngle = calculate_angle(NoseFish, realInflectionPoint,TailPoint)
+            TailAngle.append(tailAngle)
             print("Угол: ", tailAngle)
 
+     
 
-        # Display images
         cv2.imshow('Canny viewUp Video', upEdges)
         cv2.imshow('viewUp Video', viewUp)
         cv2.imshow('Source Up', viewUpSource)
@@ -470,9 +478,13 @@ while ret:
     if frameCount > frame_end:
         cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
         frameCount = 1
+        # Создаем график
+        plt.plot(TailAngle)
+        plt.show()  
     #Exit loop if 'q' is pressed
-    if cv2.waitKey(0) == ord('q'):
+    if cv2.waitKey(1) == ord('q'):
         break
+
 
 cap.release()
 cv2.destroyAllWindows()
