@@ -26,7 +26,6 @@ cap_start_msec = 323750
 cap_end_msec = 324725
 
 frame_end = (cap_end_msec - cap_start_msec) /20 
-import numpy as np
 
 def find_farthest_point(vx, vy, x, y, UpPx, botdir = True):    
     # Вычисляем направляющий вектор прямой
