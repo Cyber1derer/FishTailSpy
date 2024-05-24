@@ -10,7 +10,7 @@ from skimage.util import invert
 import matplotlib.pyplot as plt
 
 
-
+x1_cut = 525
 cap_start_msec = 323750
 cap_end_msec = 324725
 frameCount = 1
@@ -29,7 +29,7 @@ CannyThresh2 = 240
 data = np.load("camera_params.npz")
 mtx = data['mtx']
 dist = data['dist']
-
+fishHeight = []
 
 while True:
     ret, frame = cap.read()
@@ -41,7 +41,7 @@ while True:
     undistortFrame = cv2.undistort(frame, mtx, dist)
     # Extract region of interest
     #cv2.imwrite("test.png", undistortFrame)
-    viewMirror = undistortFrame[420:1183, 525:870].copy() # y1:y2 x1:x2
+    viewMirror = undistortFrame[420:1183, x1_cut:870].copy() # y1:y2 x1:x2
     #cv2.imshow("sourseMirror", viewMirror)
     #cv2.waitKey(0)
     # Apply Gaussian blur if blur size is valid
@@ -54,12 +54,12 @@ while True:
     #viewMirror = cv2.cvtColor(viewMirror, cv2.COLOR_BGR2GRAY)
     if useEqualize:
         viewMirror = cv2.equalizeHist(viewMirror)
-    cv2.imshow("Hist", viewMirror)
+    #cv2.imshow("Hist", viewMirror)
     mirrorEdges = cv2.Canny(viewMirror, CannyThresh1,CannyThresh2,None,3,False)
-    cv2.imshow("Canny", mirrorEdges)
+    #cv2.imshow("Canny", mirrorEdges)
     mirrorPxEdges = np.argwhere(mirrorEdges == 255)
     if mirrorEdges.size == 0:
-        print("Edges not found")
+        print("Mirror edges not found")
         break
     else:
         # Создаем копию для заполнения
@@ -88,10 +88,20 @@ while True:
         cy = (moments['m01'] / moments['m00'])
 
         print(f"Центроид: ({cx}, {cy})")
+        pxDistans = (cx + x1_cut) - 433
+        RealHeight = (0.18/493) * pxDistans + 0.08527
+        fishHeight.append(RealHeight)
+        frameCount +=1
+
         cv2.circle(filledImage, (int(cx), int(cy)), 1, (0,0,255),  )
         #cv2.imshow('Filled Contours', fillFish)
         cv2.imshow('Filled Contours2', filledImage)
-        cv2.waitKey(0)
-
+        cv2.waitKey(1)
+    if frameCount > frame_end:
+        np.savez('dataMirror.npz', fishHeight=fishHeight)
+        ic (fishHeight)
+        break
+    if cv2.waitKey(1) == ord('q'):
+            break
 cap.release()
 cv2.destroyAllWindows()

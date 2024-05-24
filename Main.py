@@ -236,6 +236,13 @@ def on_trackbar(val):
     CannyThresh1 = cv2.getTrackbarPos('CannyTresh1', "Canny viewUp Video")
     CannyThresh2 = cv2.getTrackbarPos('CannyTresh2', "Canny viewUp Video")
     blurSize = cv2.getTrackbarPos('BlurGaus', "Canny viewUp Video")
+
+def mirrorH ():
+    pass
+
+
+
+
 # Create window and trackbars
 cv2.namedWindow("Canny viewUp Video")
 cv2.createTrackbar("CannyTresh1", "Canny viewUp Video" , CannyThresh1, 500, on_trackbar)
@@ -255,7 +262,7 @@ cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
 data = np.load("camera_params.npz")
 mtx = data['mtx']
 dist = data['dist']
-TailAngle = []
+TailAngleArray = []
 
 while ret:
     ret, frame = cap.read()
@@ -269,7 +276,8 @@ while ret:
     viewUpSource = undistortFrame [250:1400, 1025:1440].copy() # y1:y2 x1:x2
     viewSource = undistortFrame.copy() # y1:y2 x1:x2
 
-    viewMirror = undistortFrame[250:1400, 1025:1440].copy() # y1:y2 x1:x2
+    viewMirror = undistortFrame[420:1183, 525:870].copy() # y1:y2 x1:x2
+
     # Apply Gaussian blur if blur size is valid
     if blurSize >= 3:
         if blurSize % 2 == 0 and blurSize !=0 :
@@ -336,6 +344,11 @@ while ret:
             
             [vx, vy, x, y] = cv2.fitLine(white_pixels_mask, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
             pxCenterFish.append( [x,y] )
+            # Вычисление середины объекта
+            #center_xtest = np.mean(white_pixels_mask[:, 0])
+            #center_ytest = np.mean(white_pixels_mask[:, 1])
+
+            #pxCenterFish2 = (center_xtest, center_ytest)
             k = vy[0] / vx[0]
             b = y[0] - k * x[0]
             # Вычисляем координаты концов линии для визуализации
@@ -350,7 +363,7 @@ while ret:
 
 
             try: #TODO Fix
-                NoseFish = find_farthest_point(vx, vy,x,y, max_contour2_flat)
+                NoseFish = find_farthest_point(vx, vy,x,y, max_contour2_flat) # Точка носа
             except IndexError:
                 NoseFish = None  # Возвращаем None при возникновении ошибки
                 print("Nose Error ")
@@ -420,12 +433,12 @@ while ret:
             else:
                 print("realInflectionPoint not found")
             save = realInflectionPoint[0]
-            realInflectionPoint[0] = realInflectionPoint[1]
+            realInflectionPoint[0] = realInflectionPoint[1] # Точка перегиба
             realInflectionPoint[1] = save
             
-            center_h_x = np.mean(headFishContur[:, 0])
-            center_h_y = np.mean(headFishContur[:, 1])
-            center = (int(center_h_x), int(center_h_y))
+            #center_h_x = np.mean(headFishContur[:, 0])
+            #center_h_y = np.mean(headFishContur[:, 1])
+            #center = (int(center_h_x), int(center_h_y))
 
             #"""XBOCT
             [vx, vy, x, y] = cv2.fitLine(tailFishContur, cv2.DIST_L2, 0, 0.01, 0.01) #x,y - средние точки, vx vy параметры прямой
@@ -443,7 +456,7 @@ while ret:
 
             TailPointIndx = find_closest_points_to_line2(tailFishContur,vx, vy,x,y )
             TailPoint = tailFishContur[TailPointIndx]
-            TailPoint = TailPoint[0]
+            TailPoint = TailPoint[0] #Точка хвоста
 
             #for x_t, y_t in tailFishContur:
             #    cv2.circle(viewUpSource,( x_t, y_t), 1,(0,0,255), -1)
@@ -459,10 +472,10 @@ while ret:
             cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 1 )
             cv2.line(viewUpSource, realInflectionPoint,TailPoint,(0,255,0), 1 )
             tailAngle = calculate_angle(NoseFish, realInflectionPoint,TailPoint)
-            TailAngle.append(tailAngle)
+            TailAngleArray.append(tailAngle)
             print("Угол: ", tailAngle)
 
-     
+        
 
         cv2.imshow('Canny viewUp Video', upEdges)
         cv2.imshow('viewUp Video', viewUp)
@@ -473,17 +486,29 @@ while ret:
 
         frameCount +=1
 
+
+
+
+
+
+
+
     # Reset video position after a certain frame count
     if frameCount > frame_end:
-        cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
-        frameCount = 1
+        TailAngleArray = np.array(TailAngleArray)
+        pxCenterFish = np.array(pxCenterFish)
+        np.savez('dataMain.npz', TailAngleArray=TailAngleArray, pxCenterFish=pxCenterFish)
+        print("Save Data")
+        #cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
+        #frameCount = 1
         # Создаем график
-        plt.plot(TailAngle)
-        plt.show()  
+        #plt.plot(TailAngle)
+        #plt.show()  
+        break
     #Exit loop if 'q' is pressed
     if cv2.waitKey(1) == ord('q'):
         break
 
-
+#TailAngle спиоск углов. pxCenterFish координаты рыбы
 cap.release()
 cv2.destroyAllWindows()

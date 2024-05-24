@@ -1,7 +1,10 @@
-import numpy as np
+total_milliseconds = 324725
+total_seconds = total_milliseconds // 1000
+minutes = total_seconds // 60
+seconds = total_seconds % 60
+milliseconds = total_milliseconds % 1000
 
-tvecs_1 = np.array([[0.0522289], [-0.0225811], [0.08893951]])
-tvecs_2 = np.array([[0.06938765], [-0.08318016], [2.81787905]])
+print(f"{minutes:02}:{seconds:02}:{milliseconds:03}")
 
-result = tvecs_1 - tvecs_2
-print(result)
+
+

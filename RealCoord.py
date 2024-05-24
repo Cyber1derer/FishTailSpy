@@ -1,3 +1,4 @@
+#https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html
 import cv2
 
 import numpy as np
@@ -70,9 +71,7 @@ def getPxSize(cap):
             break
 
         # Undistort frame
-
         undistortFrame = cv2.undistort(frame, mtx, dist)
-
         undistortFrame =cv2.cvtColor(undistortFrame, cv2.COLOR_BGR2GRAY)
 
         undistortFrame = cv2.equalizeHist(undistortFrame)
@@ -401,7 +400,7 @@ def getPxSize2(cap):
 
             # Найдем расстояние между первой и второй точками
 
-            for i in range(1):
+            for i in range(5):
 
                 point1 = corners2[i]
 
@@ -414,7 +413,7 @@ def getPxSize2(cap):
                 distancePxArr.append(distancePx)
             
 
-            for i in range(5, 6):
+            for i in range(6, 11):
 
                 point1 = corners2[i]
 
@@ -427,7 +426,7 @@ def getPxSize2(cap):
                 distancePxArr.append(distancePx)
 
 
-            for i in range(10, 11):
+            for i in range(12, 17):
 
                 point1 = corners2[i]
 
@@ -441,7 +440,7 @@ def getPxSize2(cap):
 
 
 
-            for i in range(15, 16):
+            for i in range(18, 23):
 
                 point1 = corners2[i]
 
@@ -454,16 +453,70 @@ def getPxSize2(cap):
                 distancePxArr.append(distancePx)
 
 
+            for i in range(24, 29):
+
+                point1 = corners2[i]
+
+                point2 = corners2[i+1]
+
+                # Вычислим расстояние Евклидовой метрикой
+
+                distancePx = np.linalg.norm(point1 - point2)
+
+                distancePxArr.append(distancePx)
+
+            for i in range(30, 35):
+
+                point1 = corners2[i]
+
+                point2 = corners2[i+1]
+
+                # Вычислим расстояние Евклидовой метрикой
+
+                distancePx = np.linalg.norm(point1 - point2)
+
+                distancePxArr.append(distancePx)
+            
+            for i in range(36, 41):
+
+                point1 = corners2[i]
+
+                point2 = corners2[i+1]
+
+                # Вычислим расстояние Евклидовой метрикой
+
+                distancePx = np.linalg.norm(point1 - point2)
+
+                distancePxArr.append(distancePx)
+            for i in range(42, 47):
+
+                point1 = corners2[i]
+
+                point2 = corners2[i+1]
+
+                # Вычислим расстояние Евклидовой метрикой
+
+                distancePx = np.linalg.norm(point1 - point2)
+
+                distancePxArr.append(distancePx)
+            for i in range(48, 53):
+
+                point1 = corners2[i]
+
+                point2 = corners2[i+1]
+
+                # Вычислим расстояние Евклидовой метрикой
+
+                distancePx = np.linalg.norm(point1 - point2)
+
+                distancePxArr.append(distancePx)
 
             mean_distance = np.mean(distancePxArr)
-
             print("Среднее расстояние между всеми соседними точками: {:.2f} пикселей".format(mean_distance))
 
 
             PxSizeMetr = cell_size/mean_distance
-
             ic(PxSizeMetr)
-
             print("Размекр пикселя в метрах для нижнего положения {:.15f}", PxSizeMetr)
 
             #cv2.imwrite("BotChess.png", undistortFrame)
@@ -497,55 +550,45 @@ objpUp *= cell_size
 
 PxSizeTop = getPxSize(chessUp) #TODO Add crop uncrop
 
+objpointsUp = np.asarray (objpointsUp)
+imgpointsUp = np.asarray (imgpointsUp)
 
+solveret, rvecs, tvecs = cv2.solvePnP(objpointsUp[0], imgpointsUp[0], mtx, (None))
 
-# Calibrate the camera
+if solveret:
+    print("rvecst: ", rvecs)
+    print("tvecs: ", tvecs)
 
-ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(objpointsUp, imgpointsUp, (1920, 1440), None, None)
-
-
-# Get the reprojection error to check the accuracy of calibration
 
 mean_error = 0
 
-for i in range(len(objpointsUp)):
 
-    imgpoints2, _ = cv2.projectPoints(objpointsUp[i], rvecs[i], tvecs[i], camera_matrix, dist_coeffs)
 
-    error = cv2.norm(imgpointsUp[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
+imgpoints2, _ = cv2.projectPoints(objpointsUp[0], rvecs, tvecs, mtx, None)
 
-    mean_error += error
+error = cv2.norm(imgpointsUp[0], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
 
+mean_error += error
 
 mean_error /= len(objpointsUp)
-
-print(f"Total reprojection error: {mean_error}")
-
-print(f"Camera matrix:\n{camera_matrix}")
-
-print(f"Distortion coefficients:\n{dist_coeffs}")
-
-print("rvec: ",rvecs)
-
-print("tvecs: ",tvecs)
+print(f"Total reprojection error: {error}")
 
 
 
 
+
+
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------------------------------------
 
 chessboard_size = (6, 9) # Здесь предполагается доска 8x8, значит внутренние углы 7x7
 
-
 objpDown = np.zeros((chessboard_size[0] * chessboard_size[1], 3), np.float32)
-
 objpDown[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2)
-
 objpDown *= cell_size
-
-
-#chessUp.set(cv2.CAP_PROP_POS_FRAMES, 1100) # On top
-
-#getPxSize2(chessUp)
 
 chessDown.set(cv2.CAP_PROP_POS_FRAMES, 20) # On botа
 
@@ -553,37 +596,19 @@ PxSizeBot = getPxSize2(chessDown)
 
 print("Down proc ")
 
-# Calibrate the camera
+solveret, rvecs, tvecs = cv2.solvePnP(objpointsDown[0], imgpointsDown[0], mtx, (None))
 
-ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(objpointsDown, imgpointsDown, (1920, 1440), None, None)
+if solveret:
+    print("Down rvecst: ", rvecs)
+    print("Down tvecs: ", tvecs)
 
-
-# Get the reprojection error to check the accuracy of calibration
 
 mean_error = 0
-
-for i in range(len(objpointsUp)):
-
-    imgpoints2, _ = cv2.projectPoints(objpointsDown[i], rvecs[i], tvecs[i], camera_matrix, dist_coeffs)
-
-    error = cv2.norm(imgpointsDown[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
-
-    mean_error += error
-
-
-mean_error /= len(objpointsUp)
-
-print(f"Total reprojection error: {mean_error}")
-
-print(f"Camera matrix:\n{camera_matrix}")
-
-print(f"Distortion coefficients:\n{dist_coeffs}")
-
-print("rvec: ",rvecs)
-
-print("tvecs: ",tvecs)
-
-
+imgpoints2, _ = cv2.projectPoints(objpointsDown[0], rvecs, tvecs, mtx, None)
+error = cv2.norm(imgpointsDown[0], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
+mean_error += error
+mean_error /= len(objpointsDown)
+print(f"Total reprojection error down: {error}")
 
 
 
