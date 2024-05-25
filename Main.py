@@ -22,8 +22,54 @@ prew_lengFish = 0
 #cap_start_msec = 22_000
 #cap_end_msec = 24_000
 pxCenterFish = []
-cap_start_msec = 323750
-cap_end_msec = 324725
+#=======================================================================================
+#                           GOPR6626        
+#======================================================================================
+#5:23-5:24
+#cap_start_msec = 323750
+#cap_end_msec = 324725
+#------------------------------
+#cap_start_msec = 22*1000
+#cap_end_msec = 24*1000
+
+#cap_start_msec = (5*60 + 31) * 1000
+#cap_end_msec = (5*60 + 32) * 1000
+
+#Canny
+#cap_start_msec = (5*60 + 54) * 1000
+#cap_end_msec = (5*60 + 55) * 1000
+
+#Bad
+#cap_start_msec = (6*60 + 40) * 1000
+#cap_end_msec = (6*60 + 41) * 1000
+
+
+#=======================================================================================
+#                           GP016626        
+#======================================================================================
+#Dark
+#cap_start_msec = (1*60 + 36) * 1000
+#cap_end_msec = (1*60 + 42) * 1000
+#UpDirection
+#cap_start_msec = (5*60 + 46.5) * 1000
+#cap_end_msec = (5*60 + 50) * 1000
+
+#=======================================================================================
+#                           GP026626        
+#======================================================================================
+#UpDirection
+#cap_start_msec = (5*60 + 41.5) * 1000
+#cap_end_msec = (5*60 + 42.5) * 1000
+
+#Wall Bad
+#cap_start_msec = (3*60 + 49) * 1000
+#cap_end_msec = (3*60 + 52) * 1000
+#NeedCut Up dir
+#cap_start_msec = (4*60 + 50.5) * 1000
+#cap_end_msec = (4*60 + 54) * 1000
+
+cap_start_msec = (5*60 + 18) * 1000
+cap_end_msec = (5*60 + 24) * 1000
 
 frame_end = (cap_end_msec - cap_start_msec) /20 
 
@@ -251,9 +297,9 @@ cv2.createTrackbar("BlurGaus", "Canny viewUp Video" , blurSize, 50, on_trackbar)
 
 # Open video file
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/Fish1_3m.mp4')
-cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/outFishFFMPEG2.mp4')#GOPR6626
+#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/outFishFFMPEG2.mp4')#GOPR6626
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish3.MP4')#GP016626
-#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish4.MP4')#GP026626
+cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish4.MP4')#GP026626
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish5.MP4')#GGP036626
 
 cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
@@ -369,7 +415,6 @@ while ret:
                 print("Nose Error ")
                 continue
             
-
             #Смещение к хвосту ЗНАК ЗАВИСИТ ОТ ПОВОРОТА ПРЯМОЙ
             if vy > 0:
                 inflectionPoint[0] = x[0] - lengFish/6 * vx[0] 
@@ -506,7 +551,7 @@ while ret:
         #plt.show()  
         break
     #Exit loop if 'q' is pressed
-    if cv2.waitKey(1) == ord('q'):
+    if cv2.waitKey(100) == ord('q'):
         break
 
 #TailAngle спиоск углов. pxCenterFish координаты рыбы
