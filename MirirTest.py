@@ -11,8 +11,69 @@ import matplotlib.pyplot as plt
 
 
 x1_cut = 525
-cap_start_msec = 323750
-cap_end_msec = 324725
+#cap_start_msec = 323750
+#cap_end_msec = 324725
+
+
+
+#cap_start_msec = (5*60 + 18) * 1000
+#cap_end_msec = (5*60 + 22) * 1000
+
+#=======================================================================================
+#                           GOPR6626        
+#======================================================================================
+#5:23-5:24
+#cap_start_msec = 323750
+#cap_end_msec = 324725
+#------------------------------
+#cap_start_msec = 22*1000
+#cap_end_msec = 24*1000
+
+#cap_start_msec = (5*60 + 31) * 1000
+#cap_end_msec = (5*60 + 32) * 1000
+
+#Canny
+#cap_start_msec = (5*60 + 54) * 1000
+#cap_end_msec = (5*60 + 55) * 1000
+
+#Bad
+#cap_start_msec = (6*60 + 40) * 1000
+#cap_end_msec = (6*60 + 41) * 1000
+
+
+#=======================================================================================
+#                           GP016626        
+#======================================================================================
+#Dark
+#cap_start_msec = (1*60 + 36) * 1000
+#cap_end_msec = (1*60 + 42) * 1000
+#UpDirection
+cap_start_msec = (5*60 + 47) * 1000
+cap_end_msec = (5*60 + 49.2) * 1000
+
+#=======================================================================================
+#                           GP026626        
+#======================================================================================
+#UpDirection Done
+#cap_start_msec = (5*60 + 41.7) * 1000
+#cap_end_msec = (5*60 + 43.7) * 1000
+
+#Wall Bad
+#cap_start_msec = (3*60 + 49) * 1000
+#cap_end_msec = (3*60 + 52) * 1000
+
+#NeedCut Up dir
+#cap_start_msec = (4*60 + 50.5) * 1000
+#cap_end_msec = (4*60 + 54) * 1000
+
+#cap_start_msec = (5*60 + 18) * 1000
+#cap_end_msec = (5*60 + 22) * 1000
+
+
+
+
+
+
 frameCount = 1
 useEqualize = True
 blurSize = 3
@@ -20,7 +81,12 @@ win_name = "FinderFish"
 
 frame_end = (cap_end_msec - cap_start_msec) /20 
 
-cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/outFishFFMPEG2.mp4')#GOPR6626
+# Open video file
+#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/Fish1_3m.mp4')
+#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/outFishFFMPEG2.mp4')#GOPR6626
+cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish3.MP4')#GP016626
+#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish4.MP4')#GP026626
+#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish5.MP4')#GGP036626
 
 cap.set(cv2.CAP_PROP_POS_MSEC , cap_start_msec)
 CannyThresh1 = 120

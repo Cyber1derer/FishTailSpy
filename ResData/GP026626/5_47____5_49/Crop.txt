@@ -1,0 +1,2 @@
+    viewUp = undistortFrame[250:1400, 1050:1340].copy() # y1:y2 x1:x2
+    viewUpSource = undistortFrame [250:1400, 1050:1340].copy() # y1:y2 x1:x2

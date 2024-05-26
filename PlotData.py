@@ -2,12 +2,29 @@ import numpy as np
 from icecream import ic
 import matplotlib.pyplot as plt
 import cv2
-
-
 dt = 1/50
 # Загрузка массивов из файла
 dataMain = np.load('dataMain.npz')
 dataMirror = np.load('dataMirror.npz')
+
+
+dataMain = np.load('dataMain.npz')
+dataMirror = np.load('dataMirror.npz')
+
+dataMain = np.load('dataMain.npz')
+dataMirror = np.load('dataMirror.npz')
+
+dataMain = np.load('dataMain.npz')
+dataMirror = np.load('dataMirror.npz')
+
+dataMain = np.load('dataMain.npz')
+dataMirror = np.load('dataMirror.npz')
+
+dataMain = np.load('dataMain.npz')
+dataMirror = np.load('dataMirror.npz')
+
+
+
 # Load camera parameters
 data = np.load("camera_params.npz")
 # Извлечение массивов
@@ -29,8 +46,11 @@ assert pxCenterFish.ndim == 2, "pxCenterFish должен быть двумер�
 # Извлечение координат x и y
 x_coords = pxCenterFish[:, 0]
 y_coords = pxCenterFish[:, 1]
+#Crop 1025 and 250 
 
-c_x = mtx[0,2]
+
+
+c_x = mtx[0,2] 
 f_x = mtx[0,0]
 c_y = mtx [1,2]
 f_y = mtx[1,1]
