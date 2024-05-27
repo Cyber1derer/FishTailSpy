@@ -29,13 +29,12 @@ x1_cut = 525
 #cap_start_msec = 22*1000
 #cap_end_msec = 24*1000
 
-#cap_start_msec = (5*60 + 31) * 1000
-#cap_end_msec = (5*60 + 32) * 1000
+#cap_start_msec = (5*60 + 31.1) * 1000
+#cap_end_msec = (5*60 + 31.7) * 1000
 
-#Canny
-#cap_start_msec = (5*60 + 54) * 1000
-#cap_end_msec = (5*60 + 55) * 1000
-
+#Canny - Done
+cap_start_msec = (5*60 + 54.6) * 1000
+cap_end_msec = (5*60 + 55.5) * 1000
 #Bad
 #cap_start_msec = (6*60 + 40) * 1000
 #cap_end_msec = (6*60 + 41) * 1000
@@ -48,8 +47,8 @@ x1_cut = 525
 #cap_start_msec = (1*60 + 36) * 1000
 #cap_end_msec = (1*60 + 42) * 1000
 #UpDirection
-cap_start_msec = (5*60 + 47) * 1000
-cap_end_msec = (5*60 + 49.2) * 1000
+#cap_start_msec = (5*60 + 47) * 1000
+#cap_end_msec = (5*60 + 49) * 1000
 
 #=======================================================================================
 #                           GP026626        
@@ -83,8 +82,8 @@ frame_end = (cap_end_msec - cap_start_msec) /20
 
 # Open video file
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/Fish1_3m.mp4')
-#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/outFishFFMPEG2.mp4')#GOPR6626
-cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish3.MP4')#GP016626
+cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/outFishFFMPEG2.mp4')#GOPR6626
+#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish3.MP4')#GP016626
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish4.MP4')#GP026626
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish5.MP4')#GGP036626
 
@@ -162,10 +161,12 @@ while True:
         cv2.circle(filledImage, (int(cx), int(cy)), 1, (0,0,255),  )
         #cv2.imshow('Filled Contours', fillFish)
         cv2.imshow('Filled Contours2', filledImage)
+        cv2.imshow('Source', filledImage)
+
         cv2.waitKey(1)
     if frameCount > frame_end:
         np.savez('dataMirror.npz', fishHeight=fishHeight)
-        ic (fishHeight)
+        ic ((len(fishHeight)  ))
         break
     if cv2.waitKey(1) == ord('q'):
             break

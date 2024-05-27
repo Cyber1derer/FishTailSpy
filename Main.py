@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 useEqualize = True
 blurSize = 3
 win_name = "FinderFish"
-CannyThresh1 = 80
-CannyThresh2 = 160
+CannyThresh1 = 100
+CannyThresh2 = 200
 frameCount = 1
 ret = True
 prew_lengFish = 0
@@ -31,16 +31,16 @@ pxCenterFish = []
 #cap_start_msec = 323750
 #cap_end_msec = 324725
 #------------------------------
-
+#Done
 #cap_start_msec = 22*1000
 #cap_end_msec = 24*1000
+#Done
+#cap_start_msec = (5*60 + 31.1) * 1000
+#cap_end_msec = (5*60 + 31.7) * 1000
 
-#cap_start_msec = (5*60 + 31) * 1000
-#cap_end_msec = (5*60 + 32) * 1000
-
-#Canny
-#cap_start_msec = (5*60 + 54) * 1000
-#cap_end_msec = (5*60 + 55) * 1000
+#Canny Daark -- Done
+#cap_start_msec = (5*60 + 54.6) * 1000
+#cap_end_msec = (5*60 + 55.5) * 1000
 
 #Bad
 #cap_start_msec = (6*60 + 40) * 1000
@@ -53,9 +53,9 @@ pxCenterFish = []
 #Dark
 #cap_start_msec = (1*60 + 36) * 1000
 #cap_end_msec = (1*60 + 42) * 1000
-#UpDirection ----- 
-cap_start_msec = (5*60 + 47) * 1000
-cap_end_msec = (5*60 + 49.2) * 1000
+#UpDirection ----- done twice
+#cap_start_msec = (5*60 + 47) * 1000
+#cap_end_msec = (5*60 + 49) * 1000
 
 #=======================================================================================
 #                           GP026626        
@@ -68,9 +68,9 @@ cap_end_msec = (5*60 + 49.2) * 1000
 #cap_start_msec = (3*60 + 49) * 1000
 #cap_end_msec = (3*60 + 52) * 1000
 
-#NeedCut Up dir
-#cap_start_msec = (4*60 + 50.5) * 1000
-#cap_end_msec = (4*60 + 54) * 1000
+#NeedCut Up dir  Too horisont
+##cap_start_msec = (4*60 + 50.5) * 1000
+cap_end_msec = (4*60 + 52) * 1000
 
 # Done
 #cap_start_msec = (5*60 + 18) * 1000   
@@ -81,8 +81,8 @@ frame_end = (cap_end_msec - cap_start_msec) /20
 
 # Open video file
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/Fish1_3m.mp4')
-#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/outFishFFMPEG2.mp4')#GOPR6626
-cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish3.MP4')#GP016626
+cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/outFishFFMPEG2.mp4')#GOPR6626
+#cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish3.MP4')#GP016626
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish4.MP4')#GP026626
 #cap = cv2.VideoCapture('D:/MyCodeProjects/FishTailSpy/Data/Fish/FFMPEGm_Fish5.MP4')#GGP036626
 
@@ -403,7 +403,6 @@ data = np.load("camera_params.npz")
 mtx = data['mtx']
 dist = data['dist']
 TailAngleArray = []
-
 while ret:
     ret, frame = cap.read()
     if not ret:
@@ -412,8 +411,8 @@ while ret:
     # Undistort frame
     undistortFrame = cv2.undistort(frame, mtx, dist)
     # Extract region of interest
-    viewUp = undistortFrame[250:1400, 1050:1340].copy() # y1:y2 x1:x2
-    viewUpSource = undistortFrame [250:1400, 1050:1340].copy() # y1:y2 x1:x2
+    viewUp = undistortFrame[250:1400, 1050:1440].copy() # y1:y2 x1:x2
+    viewUpSource = undistortFrame [250:1400, 1050:1440].copy() # y1:y2 x1:x2
     viewSource = undistortFrame.copy() # y1:y2 x1:x2
 
     viewMirror = undistortFrame[420:1183, 525:870].copy() # y1:y2 x1:x2
@@ -507,7 +506,12 @@ while ret:
 
             inflectionPoint = np.zeros(2, dtype=int)
 
-            botDir = False
+            if vx > 0:
+                botDir = False
+            else:
+                botDir = True
+            #botDir = False
+
             ic(vy)
             if vy > 0:
                 botDir2 = True
@@ -638,7 +642,7 @@ while ret:
             #PaintHullPoints
             #cv2.circle(viewUpSource,(hullpoints[bestpair[0]] ), 2,(255,0,255), -1)
             #cv2.circle(viewUpSource,(hullpoints[bestpair[1]] ), 2,(255,0,255), -1)
-            cv2.circle(viewUpSource, inflectionPoint , 4,(255,0,0), -1)
+            #cv2.circle(viewUpSource, inflectionPoint , 4,(255,0,0), -1)
             cv2.circle(viewUpSource, realInflectionPoint , 4,(0,255,255), -1)
             cv2.circle(viewUpSource, TailPoint , 1,(0,255,0), -1)
             cv2.line(viewUpSource, NoseFish,realInflectionPoint,(0,255,255), 1 )
